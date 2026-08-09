@@ -1,17 +1,41 @@
-import { Sparkles, Users } from "lucide-react";
+import { Sparkles, Users, Circle } from "lucide-react";
 import React from "react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { SERVER_URL } from "../socket/socket.js";
 
 const genderArr = ["MALE", "FEMALE", "NON-BINARY", "PREFER NOT TO SAY"];
 const interestsArr = ["MUSIC", "MOVIES", "SPORTS", "GAMING", "TECH", "TRAVEL", "FOOD", "BOOKS", "ART", "FITNESS", "PHOTOGRAPHY", "COOKING", "DANCING", "FASHION", "NATURE"];
 
-const Home = () => {
+const Home = ({ setStep, setUserData }) => {
   const [formData, setFormData] = useState({
     name: "",
     age: "",
     gender: "",
     interests: [],
   });
+  const [onlineCount, setOnlineCount] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchStats = async () => {
+      try {
+        const res = await fetch(`${SERVER_URL}/api/stats`);
+        const data = await res.json();
+        if (!cancelled) setOnlineCount(data.onlineNow);
+      } catch {
+        // Stats are a nice-to-have — fail silently rather than disrupt the form
+      }
+    };
+
+    fetchStats();
+    const interval = setInterval(fetchStats, 5000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleGenderSelect = (gender) => {
     setFormData({ ...formData, gender });
@@ -27,7 +51,23 @@ const Home = () => {
     });
   };
 
-  const isFormValid = formData.name.trim() !== "" && formData.age.trim() !== "" && formData.gender !== "" && formData.interests.length > 0;
+  const ageNum = Number(formData.age);
+  const isAgeValid = formData.age.trim() !== "" && Number.isInteger(ageNum) && ageNum >= 13 && ageNum <= 120;
+
+  const isFormValid = formData.name.trim() !== "" && isAgeValid && formData.gender !== "" && formData.interests.length > 0;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!isFormValid) return;
+
+    const payload = {
+      ...formData,
+      age: Number(formData.age),
+    };
+
+    setUserData(payload);
+    setStep("WAITING");
+  };
 
   return (
     <div className="min-h-screen bg-[#F9F8F4] flex items-center justify-center p-6 font-sans">
@@ -38,12 +78,18 @@ const Home = () => {
               <Users size={40} color="white" strokeWidth={2} />
             </div>
             <h1 className="text-4xl font-black mb-3 tracking-tighter" style={{ transform: "scaleX(1.3)", display: "inline-block" }}>
-              Chat Mingle
+              Chatognito
             </h1>
             <p className="text-[#1e1d1d] font-medium text-xl mt-1">Meet new people with shared interests!</p>
+            {onlineCount !== null && (
+              <div className="flex items-center gap-1.5 mt-3 border-[2px] border-black rounded-full px-3 py-1 bg-white">
+                <Circle size={8} className="text-green-500" fill="currentColor" />
+                <span className="text-xs font-bold uppercase tracking-wide">{onlineCount} online</span>
+              </div>
+            )}
           </div>
 
-          <form className="space-y-6" onSubmit={(e) => e.preventDefault()}>
+          <form className="space-y-6" onSubmit={handleSubmit}>
             {/* Name Input */}
             <div>
               <label className="block font-bold text-sm mb-2 uppercase tracking-wide">Your Name</label>
@@ -52,7 +98,8 @@ const Home = () => {
 
             <div>
               <label className="block font-bold text-sm mb-2 uppercase tracking-wide">Age</label>
-              <input type="number" placeholder="18" className="w-full border-[2px] border-black rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-black placeholder-gray-400 font-medium text-black" value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })} />
+              <input type="number" placeholder="18" min="13" max="120" className="w-full border-[2px] border-black rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-black placeholder-gray-400 font-medium text-black" value={formData.age} onChange={(e) => setFormData({ ...formData, age: e.target.value })} />
+              {formData.age.trim() !== "" && !isAgeValid && <p className="text-red-500 text-xs font-semibold mt-1.5">Age must be between 13 and 120.</p>}
             </div>
 
             <div>
@@ -79,8 +126,12 @@ const Home = () => {
 
             {/* Submit Button */}
             <div className="pt-6 pb-4">
-              <button type="submit" disabled={!isFormValid} className={`w-full rounded-[2rem] py-4 flex items-center justify-center gap-2 font-black text-xl transition-all duration-300
-                  ${isFormValid ? 'bg-[#ff0000] text-white shadow-[5px_5px_0_0_#28282B] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[3px_3px_0_0_#000000] cursor-pointer' : 'bg-[#f54242] text-white shadow-[5px_5px_0_0_#28282B]'}`}>
+              <button
+                type="submit"
+                disabled={!isFormValid}
+                className={`w-full rounded-[2rem] py-4 flex items-center justify-center gap-2 font-black text-xl transition-all duration-300
+                  ${isFormValid ? "bg-[#ff0000] text-white shadow-[5px_5px_0_0_#28282B] hover:translate-y-[2px] hover:translate-x-[2px] hover:shadow-[3px_3px_0_0_#000000] cursor-pointer" : "bg-[#f54242] text-white shadow-[5px_5px_0_0_#28282B]"}`}
+              >
                 <Sparkles size={24} strokeWidth={2.5} />
                 Start Chatting
               </button>
