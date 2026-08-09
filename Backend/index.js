@@ -4,17 +4,17 @@ import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
 
-import connectDB from "./database/db.js";
 import apiRoutes from "./routes/api.route.js";
 import { socketHandler } from "./socket/socketHandler.js";
 
 dotenv.config({ quiet: true });
 
-connectDB();
+// Set CLIENT_URL in your .env before deploying — "*" is only safe for local dev
+const CLIENT_URL = process.env.CLIENT_URL || "http://localhost:5173";
 
 const app = express();
 
-app.use(cors());
+app.use(cors({ origin: CLIENT_URL }));
 app.use(express.json());
 
 app.use("/api", apiRoutes);
@@ -24,7 +24,7 @@ const server = http.createServer(app);
 
 // Attach Socket.IO
 const io = new Server(server, {
-    cors: { origin: "*" },
+    cors: { origin: CLIENT_URL },
     path: "/api/socket.io"
 });
 
